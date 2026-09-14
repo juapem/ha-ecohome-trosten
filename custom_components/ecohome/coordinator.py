@@ -8,7 +8,8 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from ecohome import AsyncEcoHomeClient, SessionExpiredError
 
-from .const import CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL_MINUTES, DOMAIN
+from .const import CONF_LANGUAGE, CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL_MINUTES, DOMAIN
+from .language import apply_language, default_language
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -33,6 +34,7 @@ class EcoHomeCoordinator(DataUpdateCoordinator):
             update_interval=timedelta(minutes=interval),
         )
         self._entry = entry
+        self._language: str = entry.options.get(CONF_LANGUAGE) or default_language(hass)
         self.device_code: str = device["device_code"]
         self.device_name: str = device.get("device_nick_name") or device["device_code"]
         self.device_model: str = device.get("device_name") or "Eco-Home"
@@ -41,10 +43,11 @@ class EcoHomeCoordinator(DataUpdateCoordinator):
 
     async def _get_client(self) -> AsyncEcoHomeClient:
         if self._client is None:
-            self._client = await AsyncEcoHomeClient.login(
+            client = await AsyncEcoHomeClient.login(
                 self._entry.data["username"],
                 self._entry.data["password"],
             )
+            self._client = apply_language(client, self._language)
         return self._client
 
     async def _async_update_data(self) -> dict:
@@ -53,11 +56,12 @@ class EcoHomeCoordinator(DataUpdateCoordinator):
         except SessionExpiredError:
             _LOGGER.warning("Session expired, re-logging in")
             try:
-                self._client = await AsyncEcoHomeClient.login(
+                client = await AsyncEcoHomeClient.login(
                     self._entry.data["username"],
                     self._entry.data["password"],
                     force_relogin=True,
                 )
+                self._client = apply_language(client, self._language)
                 return await self._fetch()
             except Exception as err:
                 raise UpdateFailed(f"Error after re-login: {err}") from err
