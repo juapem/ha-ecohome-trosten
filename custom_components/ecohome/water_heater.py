@@ -9,15 +9,12 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from .cards import find_card, hot_water_card
 from .const import DOMAIN, MANUFACTURER
 from .coordinator import EcoHomeCoordinator
 
 OPERATION_ON = "on"
 OPERATION_OFF = "off"
-
-
-def _hot_water_card(card_list: list) -> dict | None:
-    return next((c for c in card_list if c.get("modeList") is None), None)
 
 
 async def async_setup_entry(
@@ -29,7 +26,7 @@ async def async_setup_entry(
     async_add_entities(
         EcoHomeWaterHeater(coordinator)
         for coordinator in coordinators
-        if _hot_water_card(coordinator.data["detail"]["cardList"]) is not None
+        if hot_water_card(coordinator.data["detail"]["cardList"]) is not None
     )
 
 
@@ -44,7 +41,7 @@ class EcoHomeWaterHeater(CoordinatorEntity[EcoHomeCoordinator], WaterHeaterEntit
 
     def __init__(self, coordinator: EcoHomeCoordinator) -> None:
         super().__init__(coordinator)
-        card = _hot_water_card(coordinator.data["detail"]["cardList"])
+        card = hot_water_card(coordinator.data["detail"]["cardList"])
         assert card is not None
         self._switch_address: str = card["switchAddress"]
         self._setting_address: str = card["settingAddress"]
@@ -64,7 +61,7 @@ class EcoHomeWaterHeater(CoordinatorEntity[EcoHomeCoordinator], WaterHeaterEntit
         self._attr_temperature_unit = (
             UnitOfTemperature.FAHRENHEIT if unit == "°F" else UnitOfTemperature.CELSIUS
         )
-        card = _hot_water_card(detail["cardList"])
+        card = find_card(detail["cardList"], self._switch_address)
         if card is None:
             self._attr_current_operation = None
             self._attr_current_temperature = None

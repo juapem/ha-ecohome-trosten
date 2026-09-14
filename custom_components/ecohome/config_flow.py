@@ -7,7 +7,8 @@ from homeassistant.helpers import selector
 
 from ecohome import AsyncEcoHomeClient, AuthenticationFailedError
 
-from .const import CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL_MINUTES, DOMAIN
+from .const import CONF_LANGUAGE, CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL_MINUTES, DOMAIN
+from .language import LANGUAGES, default_language
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -62,6 +63,7 @@ class EcoHomeOptionsFlow(OptionsFlow):
             return self.async_create_entry(data=user_input)
 
         current = self.config_entry.options.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL_MINUTES)
+        language = self.config_entry.options.get(CONF_LANGUAGE) or default_language(self.hass)
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema({
@@ -71,6 +73,15 @@ class EcoHomeOptionsFlow(OptionsFlow):
                         max=30,
                         mode=selector.NumberSelectorMode.BOX,
                         unit_of_measurement="minutes",
+                    )
+                ),
+                vol.Required(CONF_LANGUAGE, default=language): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=[
+                            selector.SelectOptionDict(value=code, label=label)
+                            for code, label in LANGUAGES.items()
+                        ],
+                        mode=selector.SelectSelectorMode.DROPDOWN,
                     )
                 ),
             }),
